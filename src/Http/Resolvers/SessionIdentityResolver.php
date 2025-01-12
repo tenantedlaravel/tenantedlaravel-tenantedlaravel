@@ -99,8 +99,8 @@ final class SessionIdentityResolver extends BaseIdentityResolver
      */
     public function resolveFromRequest(Request $request, Tenancy $tenancy): ?string
     {
-        if (sprout()->hasOverride(SessionOverride::class)) {
-            throw CompatibilityException::make('resolver', $this->getName(), 'override', SessionOverride::class);
+        if (sprout()->overrides()->hasOverride('session')) {
+            throw CompatibilityException::make('resolver', $this->getName(), 'service override', 'session');
         }
 
         /**

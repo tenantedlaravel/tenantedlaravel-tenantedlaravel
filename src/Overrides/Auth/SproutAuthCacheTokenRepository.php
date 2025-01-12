@@ -13,7 +13,7 @@ use Sprout\Exceptions\TenancyMissingException;
 use Sprout\Exceptions\TenantMissingException;
 use function Sprout\sprout;
 
-class TenantAwareCacheTokenRepository extends CacheTokenRepository
+class SproutAuthCacheTokenRepository extends CacheTokenRepository
 {
     /**
      * @return string

@@ -4,10 +4,13 @@ declare(strict_types=1);
 namespace Sprout\Tests\Unit\Http\Resolvers;
 
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Orchestra\Testbench\Attributes\DefineEnvironment;
 use PHPUnit\Framework\Attributes\Test;
+use Sprout\Exceptions\CompatibilityException;
 use Sprout\Http\Resolvers\CookieIdentityResolver;
+use Sprout\Overrides\CookieOverride;
 use Sprout\Support\ResolutionHook;
 use Sprout\Tests\Unit\UnitTestCase;
 use Workbench\App\Models\TenantModel;
@@ -55,6 +58,13 @@ class CookieIdentityResolverTest extends UnitTestCase
     {
         tap($app['config'], static function ($config) {
             $config->set('multitenancy.resolvers.cookie.cookie', '{Tenancy}-{tenancy}-{Resolver}-{resolver}');
+        });
+    }
+
+    protected function withCookieServiceOverride(Application $app): void
+    {
+        tap($app['config'], static function ($config) {
+            $config->set('sprout.overrides.cookie', ['driver' => CookieOverride::class]);
         });
     }
 
@@ -149,5 +159,20 @@ class CookieIdentityResolverTest extends UnitTestCase
         $this->assertSame('/tenant', $resolver->route('tenant-route', $tenancy, $tenant, absolute: false));
         $this->assertSame('http://localhost/tenant', sprout()->route('tenant-route', $tenant, $resolver->getName(), $tenancy->getName()));
         $this->assertSame('http://localhost/tenant', sprout()->route('tenant-route', $tenant));
+    }
+
+    #[Test, DefineEnvironment('withCookieServiceOverride')]
+    public function errorsOutIfTheCookieServiceHasAnOverride(): void
+    {
+        /** @var \Illuminate\Http\Request $request */
+        $request = app()->make(Request::class);
+
+        $tenancy  = tenancy();
+        $resolver = resolver('cookie');
+
+        $this->expectException(CompatibilityException::class);
+        $this->expectExceptionMessage('Cannot use resolver [cookie] with service override [cookie]');
+
+        $resolver->resolveFromRequest($request, $tenancy);
     }
 }

@@ -7,7 +7,7 @@ use Illuminate\Auth\Passwords\PasswordBrokerManager;
 use Illuminate\Auth\Passwords\TokenRepositoryInterface;
 
 /**
- * Tenant Aware Password Broker Manager
+ * Sprout Auth Password Broker Manager
  *
  * This is an override of the default password broker manager to make it
  * create a tenant-aware {@see \Illuminate\Auth\Passwords\TokenRepositoryInterface}.
@@ -17,7 +17,7 @@ use Illuminate\Auth\Passwords\TokenRepositoryInterface;
  *
  * @package Overrides
  */
-class TenantAwarePasswordBrokerManager extends PasswordBrokerManager
+class SproutAuthPasswordBrokerManager extends PasswordBrokerManager
 {
     /**
      * Create a token repository instance based on the current configuration.
@@ -38,7 +38,7 @@ class TenantAwarePasswordBrokerManager extends PasswordBrokerManager
         // @codeCoverageIgnoreEnd
 
         if (isset($config['driver']) && $config['driver'] === 'cache') {
-            return new TenantAwareCacheTokenRepository(
+            return new SproutAuthCacheTokenRepository(
                 $this->app['cache']->store($config['store'] ?? null), // @phpstan-ignore-line
                 $this->app['hash'],                                   // @phpstan-ignore-line
                 $key,
@@ -50,7 +50,7 @@ class TenantAwarePasswordBrokerManager extends PasswordBrokerManager
 
         $connection = $config['connection'] ?? null;
 
-        return new TenantAwareDatabaseTokenRepository(
+        return new SproutAuthDatabaseTokenRepository(
             $this->app['db']->connection($connection), // @phpstan-ignore-line
             $this->app['hash'],                        // @phpstan-ignore-line
             $config['table'],                          // @phpstan-ignore-line

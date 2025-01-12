@@ -13,7 +13,7 @@ use Sprout\Exceptions\TenantMissingException;
 use function Sprout\sprout;
 
 /**
- * Tenant Aware Database Token Repository
+ * Sprout Auth Database Token Repository
  *
  * This is a database token repository that wraps the default
  * {@see \Illuminate\Auth\Passwords\DatabaseTokenRepository} to query based on
@@ -21,7 +21,7 @@ use function Sprout\sprout;
  *
  * @package Overrides
  */
-class TenantAwareDatabaseTokenRepository extends DatabaseTokenRepository
+class SproutAuthDatabaseTokenRepository extends DatabaseTokenRepository
 {
     /**
      * Build the record payload for the table.

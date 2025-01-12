@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Sprout\Listeners;
 
 use Sprout\Events\CurrentTenantChanged;
-use Sprout\Sprout;
+use Sprout\Managers\ServiceOverrideManager;
 
 /**
  * Setup Service Overrides
@@ -17,18 +17,18 @@ use Sprout\Sprout;
 final class SetupServiceOverrides
 {
     /**
-     * @var \Sprout\Sprout
+     * @var \Sprout\Managers\ServiceOverrideManager
      */
-    private Sprout $sprout;
+    private ServiceOverrideManager $overrides;
 
     /**
      * Create a new instance
      *
-     * @param \Sprout\Sprout $sprout
+     * @param \Sprout\Managers\ServiceOverrideManager $overrides
      */
-    public function __construct(Sprout $sprout)
+    public function __construct(ServiceOverrideManager $overrides)
     {
-        $this->sprout = $sprout;
+        $this->overrides = $overrides;
     }
 
     /**
@@ -47,6 +47,6 @@ final class SetupServiceOverrides
             return;
         }
 
-        $this->sprout->setupOverrides($event->tenancy, $event->current);
+        $this->overrides->setupOverrides($event->tenancy, $event->current);
     }
 }

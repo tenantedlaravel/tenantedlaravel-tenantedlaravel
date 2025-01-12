@@ -15,9 +15,6 @@
         testdox="true"
 >
     <testsuites>
-        <testsuite name="Original">
-            <directory>tests/_Original</directory>
-        </testsuite>
         <testsuite name="Feature">
             <directory>./tests/Feature</directory>
         </testsuite>

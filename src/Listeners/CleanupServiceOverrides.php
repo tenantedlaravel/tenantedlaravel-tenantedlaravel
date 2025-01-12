@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Sprout\Listeners;
 
 use Sprout\Events\CurrentTenantChanged;
-use Sprout\Sprout;
+use Sprout\Managers\ServiceOverrideManager;
 
 /**
  * Clean-up Service Overrides
@@ -17,18 +17,18 @@ use Sprout\Sprout;
 final class CleanupServiceOverrides
 {
     /**
-     * @var \Sprout\Sprout
+     * @var \Sprout\Managers\ServiceOverrideManager
      */
-    private Sprout $sprout;
+    private ServiceOverrideManager $overrides;
 
     /**
      * Create a new instance
      *
-     * @param \Sprout\Sprout $sprout
+     * @param \Sprout\Managers\ServiceOverrideManager $overrides
      */
-    public function __construct(Sprout $sprout)
+    public function __construct(ServiceOverrideManager $overrides)
     {
-        $this->sprout = $sprout;
+        $this->overrides = $overrides;
     }
 
     /**
@@ -39,6 +39,8 @@ final class CleanupServiceOverrides
      * @param \Sprout\Events\CurrentTenantChanged<TenantClass> $event
      *
      * @return void
+     *
+     * @throws \Sprout\Exceptions\ServiceOverrideException
      */
     public function handle(CurrentTenantChanged $event): void
     {
@@ -47,6 +49,6 @@ final class CleanupServiceOverrides
             return;
         }
 
-        $this->sprout->cleanupOverrides($event->tenancy, $event->previous);
+        $this->overrides->cleanupOverrides($event->tenancy, $event->previous);
     }
 }

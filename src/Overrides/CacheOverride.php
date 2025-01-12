@@ -3,50 +3,22 @@ declare(strict_types=1);
 
 namespace Sprout\Overrides;
 
-use Illuminate\Cache\ApcStore;
-use Illuminate\Cache\ApcWrapper;
-use Illuminate\Cache\ArrayStore;
+use Closure;
 use Illuminate\Cache\CacheManager;
-use Illuminate\Cache\DatabaseStore;
-use Illuminate\Cache\FileStore;
-use Illuminate\Cache\MemcachedStore;
-use Illuminate\Cache\NullStore;
-use Illuminate\Cache\RedisStore;
+use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Contracts\Foundation\Application;
 use Sprout\Contracts\BootableServiceOverride;
-use Sprout\Contracts\DeferrableServiceOverride;
 use Sprout\Contracts\Tenancy;
 use Sprout\Contracts\Tenant;
-use Sprout\Exceptions\MisconfigurationException;
-use Sprout\Exceptions\TenantMissingException;
+use Sprout\Overrides\Cache\SproutCacheDriverCreator;
 use Sprout\Sprout;
 
-/**
- * Cache Override
- *
- * This class provides the override/multitenancy extension/features for Laravels
- * cache service.
- *
- * @package Overrides
- */
-final class CacheOverride implements BootableServiceOverride, DeferrableServiceOverride
+final class CacheOverride extends BaseOverride implements BootableServiceOverride
 {
     /**
-     * Cache stores that can be purged
-     *
      * @var list<string>
      */
-    private static array $purgableStores = [];
-
-    /**
-     * Get the service to watch for before overriding
-     *
-     * @return string
-     */
-    public static function service(): string
-    {
-        return CacheManager::class;
-    }
+    protected array $drivers = [];
 
     /**
      * Boot a service override
@@ -58,155 +30,31 @@ final class CacheOverride implements BootableServiceOverride, DeferrableServiceO
      * @param \Sprout\Sprout                               $sprout
      *
      * @return void
-     *
-     * @throws \Illuminate\Contracts\Container\BindingResolutionException
      */
     public function boot(Application $app, Sprout $sprout): void
     {
-        $cacheManager = app(CacheManager::class);
+        $tracker = fn(string $store) => $this->drivers[] = $store;
 
-        $cacheManager->extend('sprout',
-            /**
-             * @param array<string, mixed> $config
-             *
-             * @throws \Sprout\Exceptions\TenantMissingException
-             */
-            function (Application $app, array $config) use ($sprout, $cacheManager) {
-                $tenancy = $sprout->tenancies()->get($config['tenancy'] ?? null);
-
-                // If there's no tenant, error out
-                if (! $tenancy->check()) {
-                    throw TenantMissingException::make($tenancy->getName());
-                }
-
-                $tenant = $tenancy->tenant();
-
-                if (! isset($config['override'])) {
-                    throw MisconfigurationException::missingConfig('override', self::class, 'override');
-                }
-
-                /** @var array<string, mixed> $storeConfig */
-                $storeConfig = config('caches.store.' . $config['override']);
-                $prefix      = (
-                               isset($storeConfig['prefix'])
-                                   ? $storeConfig['prefix'] . '_'
-                                   : ''
-                               )
-                               . $tenancy->getName()
-                               . '_'
-                               . $tenant->getTenantKey();
-
-                /** @var array{driver:string,serialize?:bool,path:string,permission?:int|null,lock_path?:string|null} $storeConfig */
-
-                /** @var string $storeName */
-                $storeName = config('store');
-
-                if (! in_array($storeName, self::$purgableStores, true)) {
-                    self::$purgableStores[] = $storeName;
-                }
-
-                return $cacheManager->repository(match ($storeConfig['driver']) {
-                    'apc'       => new ApcStore(new ApcWrapper(), $prefix),
-                    'array'     => new ArrayStore($storeConfig['serialize'] ?? false),
-                    'file'      => (new FileStore(app('files'), $storeConfig['path'], $storeConfig['permission'] ?? null))
-                        ->setLockDirectory($storeConfig['lock_path'] ?? null),
-                    'null'      => new NullStore(),
-                    'memcached' => $this->createTenantedMemcachedStore($prefix, $storeConfig),
-                    'redis'     => $this->createTenantedRedisStore($prefix, $storeConfig),
-                    'database'  => $this->createTenantedDatabaseStore($prefix, $storeConfig),
-                    default     => throw MisconfigurationException::invalidConfig('driver', 'override', CacheOverride::class)
-                }, array_merge($config, $storeConfig));
-
-            }
-        );
-    }
-
-    /**
-     * Create a memcache cache store that's tenanted
-     *
-     * @param string               $prefix
-     * @param array<string, mixed> $config
-     *
-     * @return \Illuminate\Cache\MemcachedStore
-     */
-    private function createTenantedMemcachedStore(string $prefix, array $config): MemcachedStore
-    {
-        /** @var array{servers:array<string, mixed>,persistent_id?:string|null, options?:array<string,mixed>|null,sasl?:array<mixed>|null} $config */
-
-        $memcached = app('memcached.connector')->connect(
-            $config['servers'],
-            $config['persistent_id'] ?? null,
-            $config['options'] ?? [],
-            array_filter($config['sasl'] ?? [])
-        );
-
-        return new MemcachedStore($memcached, $prefix);
-    }
-
-    /**
-     * Create a Redis cache store that's tenanted
-     *
-     * @param string               $prefix
-     * @param array<string, mixed> $config
-     *
-     * @return \Illuminate\Cache\RedisStore
-     */
-    private function createTenantedRedisStore(string $prefix, array $config): RedisStore
-    {
-        /** @var array{connection?:string|null, lock_connection?:string|null} $config */
-        $redis = app('redis');
-
-        $connection = $config['connection'] ?? 'default';
-
-        return (new RedisStore($redis, $prefix, $connection))->setLockConnection($config['lock_connection'] ?? $connection);
-    }
-
-    /**
-     * Create a database cache store that's tenanted
-     *
-     * @param string               $prefix
-     * @param array<string, mixed> $config
-     *
-     * @return \Illuminate\Cache\DatabaseStore
-     */
-    private function createTenantedDatabaseStore(string $prefix, array $config): DatabaseStore
-    {
-        /** @var array{table:string,lock_table?:string|null,lock_lottery?:array<int>|null,lock_timeout?:int|null,connection?:string|null, lock_connection?:string|null} $config */
-        $connection = app('db')->connection($config['connection'] ?? null);
-
-        $store = new DatabaseStore(
-            $connection,
-            $config['table'],
-            $prefix,
-            $config['lock_table'] ?? 'cache_locks',
-            $config['lock_lottery'] ?? [2, 100],
-            $config['lock_timeout'] ?? 86400,
-        );
-
-        if (isset($config['lock_connection'])) {
-            $store->setLockConnection(app('db')->connection($config['lock_connection']));
+        // If the cache manager has been resolved, we can add the driver
+        if ($app->resolved('cache')) {
+            $this->addDriver($app->make('cache'), $sprout, $tracker);
         } else {
-            $store->setLockConnection($connection);
+            // But if it hasn't, we'll add it once it is
+            $app->afterResolving('cache', function (CacheManager $manager) use ($sprout, $tracker) {
+                $this->addDriver($manager, $sprout, $tracker);
+            });
         }
-
-        return $store;
     }
 
-    /**
-     * Set up the service override
-     *
-     * This method should perform any necessary setup actions for the service
-     * override.
-     * It is called when a new tenant is marked as the current tenant.
-     *
-     * @param \Sprout\Contracts\Tenancy<*> $tenancy
-     * @param \Sprout\Contracts\Tenant $tenant
-     *
-     * @return void
-     */
-    public function setup(Tenancy $tenancy, Tenant $tenant): void
+    protected function addDriver(CacheManager $manager, Sprout $sprout, Closure $tracker): void
     {
-        // This is intentionally empty, nothing to do here
+        $manager->extend('sprout', function (Application $app, array $config) use ($manager, $sprout, $tracker): Repository {
+            // The cache manager adds the store name to the config, so we'll
+            // _STORE_ that ;)
+            $tracker($config['store']);
+
+            return (new SproutCacheDriverCreator($app, $manager, $config, $sprout))();
+        });
     }
 
     /**
@@ -220,13 +68,21 @@ final class CacheOverride implements BootableServiceOverride, DeferrableServiceO
      * It will be called before {@see self::setup()}, but only if the previous
      * tenant was not null.
      *
-     * @param \Sprout\Contracts\Tenancy<*> $tenancy
-     * @param \Sprout\Contracts\Tenant $tenant
+     * @template TenantClass of \Sprout\Contracts\Tenant
+     *
+     * @param \Sprout\Contracts\Tenancy<TenantClass> $tenancy
+     * @param \Sprout\Contracts\Tenant               $tenant
+     *
+     * @phpstan-param TenantClass                    $tenant
      *
      * @return void
      */
     public function cleanup(Tenancy $tenancy, Tenant $tenant): void
     {
-        app(CacheManager::class)->forgetDriver(self::$purgableStores);
+        if (! empty($this->drivers)) {
+            app('cache')->forgetDriver($this->drivers);
+
+            $this->drivers = [];
+        }
     }
 }

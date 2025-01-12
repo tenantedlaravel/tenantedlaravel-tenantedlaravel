@@ -4,10 +4,14 @@ declare(strict_types=1);
 namespace Sprout\Tests\Unit\Http\Resolvers;
 
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Orchestra\Testbench\Attributes\DefineEnvironment;
 use PHPUnit\Framework\Attributes\Test;
+use Sprout\Exceptions\CompatibilityException;
 use Sprout\Http\Resolvers\SessionIdentityResolver;
+use Sprout\Overrides\CookieOverride;
+use Sprout\Overrides\SessionOverride;
 use Sprout\Support\ResolutionHook;
 use Sprout\Tests\Unit\UnitTestCase;
 use Workbench\App\Models\TenantModel;
@@ -44,6 +48,13 @@ class SessionIdentityResolverTest extends UnitTestCase
     {
         tap($app['config'], static function ($config) {
             $config->set('multitenancy.resolvers.session.session', '{Tenancy}-{tenancy}-{Resolver}-{resolver}');
+        });
+    }
+
+    protected function withSessionServiceOverride(Application $app): void
+    {
+        tap($app['config'], static function ($config) {
+            $config->set('sprout.overrides.session', ['driver' => SessionOverride::class]);
         });
     }
 
@@ -116,5 +127,20 @@ class SessionIdentityResolverTest extends UnitTestCase
         $this->assertSame('/tenant', $resolver->route('tenant-route', $tenancy, $tenant, absolute: false));
         $this->assertSame('http://localhost/tenant', sprout()->route('tenant-route', $tenant, $resolver->getName(), $tenancy->getName()));
         $this->assertSame('http://localhost/tenant', sprout()->route('tenant-route', $tenant));
+    }
+
+    #[Test, DefineEnvironment('withSessionServiceOverride')]
+    public function errorsOutIfTheCookieServiceHasAnOverride(): void
+    {
+        /** @var \Illuminate\Http\Request $request */
+        $request = app()->make(Request::class);
+
+        $tenancy  = tenancy();
+        $resolver = resolver('session');
+
+        $this->expectException(CompatibilityException::class);
+        $this->expectExceptionMessage('Cannot use resolver [session] with service override [session]');
+
+        $resolver->resolveFromRequest($request, $tenancy);
     }
 }

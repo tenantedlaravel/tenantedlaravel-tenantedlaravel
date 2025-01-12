@@ -13,8 +13,9 @@ use Sprout\Events\CurrentTenantChanged;
 use Sprout\Http\Middleware\TenantRoutes;
 use Sprout\Listeners\IdentifyTenantOnRouting;
 use Sprout\Managers\IdentityResolverManager;
-use Sprout\Managers\TenantProviderManager;
+use Sprout\Managers\ServiceOverrideManager;
 use Sprout\Managers\TenancyManager;
+use Sprout\Managers\TenantProviderManager;
 use Sprout\Sprout;
 use Sprout\SproutServiceProvider;
 use function Sprout\sprout;
@@ -106,6 +107,24 @@ class SproutServiceProviderTest extends UnitTestCase
     }
 
     #[Test]
+    public function serviceOverrideManagerIsRegistered(): void
+    {
+        $this->assertTrue(app()->has(ServiceOverrideManager::class));
+        $this->assertTrue(app()->has('sprout.overrides'));
+        $this->assertTrue(app()->isShared(ServiceOverrideManager::class));
+        $this->assertFalse(app()->isShared('sprout.overrides'));
+
+        $this->assertSame(app()->make(ServiceOverrideManager::class), app()->make(ServiceOverrideManager::class));
+        $this->assertSame(app()->make('sprout.overrides'), app()->make('sprout.overrides'));
+        $this->assertSame(app()->make(ServiceOverrideManager::class), app()->make('sprout.overrides'));
+        $this->assertSame(app()->make('sprout.overrides'), app()->make(ServiceOverrideManager::class));
+        $this->assertSame(app()->make(Sprout::class)->overrides(), app()->make('sprout.overrides'));
+        $this->assertSame(app()->make(Sprout::class)->overrides(), app()->make(ServiceOverrideManager::class));
+        $this->assertSame(sprout()->overrides(), sprout()->overrides());
+        $this->assertSame(app()->make(Sprout::class)->overrides(), sprout()->overrides());
+    }
+
+    #[Test]
     public function registersTenantRoutesMiddleware(): void
     {
         $router     = $this->app->make(Router::class);
@@ -138,17 +157,19 @@ class SproutServiceProviderTest extends UnitTestCase
     {
         $this->assertTrue(app()['config']->has('sprout'));
         $this->assertIsArray(app()['config']->get('sprout'));
-        $this->assertTrue(app()['config']->has('sprout.hooks'));
+        $this->assertTrue(app()['config']->has('sprout.core.hooks'));
     }
 
     #[Test]
     public function registersServiceOverrides(): void
     {
-        $overrides = config('sprout.services');
+        $overrides = config('sprout.overrides');
 
-        foreach ($overrides as $service => $override) {
-            $this->assertTrue(sprout()->hasRegisteredOverride($override));
-            $this->assertTrue(sprout()->isServiceBeingOverridden($service));
+        $manager = $this->app->make(ServiceOverrideManager::class);
+
+        foreach ($overrides as $service => $config) {
+            $this->assertTrue($manager->hasOverride($service));
+            $this->assertSame($config['driver'], $manager->getOverrideClass($service));
         }
     }
 
@@ -167,7 +188,7 @@ class SproutServiceProviderTest extends UnitTestCase
     #[Test]
     public function registersTenancyBootstrappers(): void
     {
-        $bootstrappers = config('sprout.bootstrappers');
+        $bootstrappers = config('sprout.core.bootstrappers');
 
         $dispatcher = app()->make(Dispatcher::class);
 

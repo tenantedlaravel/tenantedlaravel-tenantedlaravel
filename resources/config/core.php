@@ -42,35 +42,4 @@ return [
         \Sprout\Listeners\SetupServiceOverrides::class,
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Service Overrides
-    |--------------------------------------------------------------------------
-    |
-    | This is an array of service override classes.
-    | These classes will be instantiated and automatically run when relevant.
-    |
-    */
-
-    'services' => [
-        // This will override the storage by introducing a 'sprout' driver
-        // that wraps any other storage drive in a tenant resource subdirectory.
-        Services::STORAGE => \Sprout\Overrides\StorageOverride::class,
-        // This will hydrate tenants when running jobs, based on the current
-        // context.
-        Services::JOB     => \Sprout\Overrides\JobOverride::class,
-        // This will override the cache by introducing a 'sprout' driver
-        // that adds a prefix to cache stores for the current tenant.
-        Services::CACHE   => \Sprout\Overrides\CacheOverride::class,
-        // This is a simple override that removes all currently resolved
-        // guards to prevent user auth leaking.
-        Services::AUTH    => \Sprout\Overrides\AuthOverride::class,
-        // This will override the cookie settings so that all created cookies
-        // are specific to the tenant.
-        Services::COOKIE  => \Sprout\Overrides\CookieOverride::class,
-        // This will override the session by introducing a 'sprout' driver
-        // that wraps any other session store.
-        Services::SESSION => \Sprout\Overrides\SessionOverride::class,
-    ],
-
 ];

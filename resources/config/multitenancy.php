@@ -50,6 +50,7 @@ return [
             'options'  => [
                 TenancyOptions::hydrateTenantRelation(),
                 TenancyOptions::throwIfNotRelated(),
+                TenancyOptions::allOverrides(),
             ],
         ],
 

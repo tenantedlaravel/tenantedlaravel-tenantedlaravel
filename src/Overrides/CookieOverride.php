@@ -18,18 +18,8 @@ use function Sprout\settings;
  *
  * @package Overrides
  */
-final class CookieOverride implements ServiceOverride, DeferrableServiceOverride
+final class CookieOverride extends BaseOverride
 {
-    /**
-     * Get the service to watch for before overriding
-     *
-     * @return string
-     */
-    public static function service(): string
-    {
-        return 'cookie';
-    }
-
     /**
      * Set up the service override
      *
@@ -61,28 +51,5 @@ final class CookieOverride implements ServiceOverride, DeferrableServiceOverride
 
         // Set the default values on the cookiejar
         app(CookieJar::class)->setDefaultPathAndDomain($path, $domain, $secure, $sameSite);
-    }
-
-    /**
-     * Clean up the service override
-     *
-     * This method should perform any necessary setup actions for the service
-     * override.
-     * It is called when the current tenant is unset, either to be replaced
-     * by another tenant, or none.
-     *
-     * It will be called before {@see self::setup()}, but only if the previous
-     * tenant was not null.
-     *
-     * @param \Sprout\Contracts\Tenancy<*> $tenancy
-     * @param \Sprout\Contracts\Tenant $tenant
-     *
-     * @return void
-     *
-     * @codeCoverageIgnore
-     */
-    public function cleanup(Tenancy $tenancy, Tenant $tenant): void
-    {
-        // This is intentionally empty
     }
 }

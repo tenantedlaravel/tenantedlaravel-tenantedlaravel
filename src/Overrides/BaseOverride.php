@@ -1,24 +1,32 @@
 <?php
+declare(strict_types=1);
 
-namespace Sprout\Contracts;
+namespace Sprout\Overrides;
 
-/**
- * Service Override
- *
- * This contract marks a class as being responsible for handling the overriding
- * of a core Laravel service, such as cookies, sessions, or the database.
- *
- * @package Overrides
- */
-interface ServiceOverride
+use Sprout\Contracts\ServiceOverride;
+use Sprout\Contracts\Tenancy;
+use Sprout\Contracts\Tenant;
+
+abstract class BaseOverride implements ServiceOverride
 {
+    public readonly string $service;
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected array $config;
+
     /**
      * Create a new instance of the service override
      *
      * @param string               $service
      * @param array<string, mixed> $config
      */
-    public function __construct(string $service, array $config);
+    public function __construct(string $service, array $config)
+    {
+        $this->config  = $config;
+        $this->service = $service;
+    }
 
     /**
      * Set up the service override
@@ -36,7 +44,10 @@ interface ServiceOverride
      *
      * @return void
      */
-    public function setup(Tenancy $tenancy, Tenant $tenant): void;
+    public function setup(Tenancy $tenancy, Tenant $tenant): void
+    {
+        // I'm intentionally empty
+    }
 
     /**
      * Clean up the service override
@@ -58,5 +69,9 @@ interface ServiceOverride
      *
      * @return void
      */
-    public function cleanup(Tenancy $tenancy, Tenant $tenant): void;
+    public function cleanup(Tenancy $tenancy, Tenant $tenant): void
+    {
+        // I'm intentionally empty
+    }
+
 }

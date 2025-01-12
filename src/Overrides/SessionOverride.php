@@ -3,25 +3,17 @@ declare(strict_types=1);
 
 namespace Sprout\Overrides;
 
-use Closure;
 use Illuminate\Contracts\Foundation\Application;
-use Illuminate\Session\DatabaseSessionHandler as OriginalDatabaseSessionHandler;
-use Illuminate\Session\FileSessionHandler;
 use Illuminate\Session\SessionManager;
 use Illuminate\Support\Arr;
 use Sprout\Contracts\BootableServiceOverride;
-use Sprout\Contracts\DeferrableServiceOverride;
 use Sprout\Contracts\Tenancy;
 use Sprout\Contracts\Tenant;
-use Sprout\Contracts\TenantHasResources;
-use Sprout\Exceptions\MisconfigurationException;
-use Sprout\Exceptions\TenancyMissingException;
-use Sprout\Exceptions\TenantMissingException;
-use Sprout\Overrides\Session\TenantAwareDatabaseSessionHandler;
+use Sprout\Overrides\Session\SproutSessionDatabaseDriverCreator;
+use Sprout\Overrides\Session\SproutSessionFileDriverCreator;
 use Sprout\Sprout;
 use Sprout\Support\Settings;
 use function Sprout\settings;
-use function Sprout\sprout;
 
 /**
  * Session Override
@@ -31,18 +23,8 @@ use function Sprout\sprout;
  *
  * @package Overrides
  */
-final class SessionOverride implements BootableServiceOverride, DeferrableServiceOverride
+final class SessionOverride extends BaseOverride implements BootableServiceOverride
 {
-    /**
-     * Get the service to watch for before overriding
-     *
-     * @return string
-     */
-    public static function service(): string
-    {
-        return 'session';
-    }
-
     /**
      * Boot a service override
      *
@@ -56,18 +38,21 @@ final class SessionOverride implements BootableServiceOverride, DeferrableServic
      */
     public function boot(Application $app, Sprout $sprout): void
     {
-        $sessionManager = app(SessionManager::class);
+        app()->afterResolving('session', function (SessionManager $manager) use ($app, $sprout) {
+            $creator = new SproutSessionFileDriverCreator($app, $manager, $sprout);
 
-        // The native driver proxies the call to the createFileDriver method,
-        // so we have to override that too.
-        $fileCreator = self::createFilesDriver();
+            $manager->extend('file', $creator(...));
+            $manager->extend('native', $creator(...));
 
-        $sessionManager->extend('file', $fileCreator);
-        $sessionManager->extend('native', $fileCreator);
+            /** @var bool $overrideDatabase */
+            $overrideDatabase = $this->config['database'] ?? true;
 
-        if (settings()->shouldNotOverrideTheDatabase(false) === false) {
-            $sessionManager->extend('database', self::createDatabaseDriver());
-        }
+            if (settings()->shouldNotOverrideTheDatabase($overrideDatabase) === false) {
+                $manager->extend('database', (new SproutSessionDatabaseDriverCreator(
+                    $app, $manager, $sprout
+                ))(...));
+            }
+        });
     }
 
     /**
@@ -77,8 +62,12 @@ final class SessionOverride implements BootableServiceOverride, DeferrableServic
      * override.
      * It is called when a new tenant is marked as the current tenant.
      *
-     * @param \Sprout\Contracts\Tenancy<*> $tenancy
-     * @param \Sprout\Contracts\Tenant $tenant
+     * @template TenantClass of \Sprout\Contracts\Tenant
+     *
+     * @param \Sprout\Contracts\Tenancy<TenantClass> $tenancy
+     * @param \Sprout\Contracts\Tenant               $tenant
+     *
+     * @phpstan-param TenantClass                    $tenant
      *
      * @return void
      */
@@ -130,8 +119,12 @@ final class SessionOverride implements BootableServiceOverride, DeferrableServic
      * It will be called before {@see self::setup()}, but only if the previous
      * tenant was not null.
      *
-     * @param \Sprout\Contracts\Tenancy<*> $tenancy
-     * @param \Sprout\Contracts\Tenant $tenant
+     * @template TenantClass of \Sprout\Contracts\Tenant
+     *
+     * @param \Sprout\Contracts\Tenancy<TenantClass> $tenancy
+     * @param \Sprout\Contracts\Tenant               $tenant
+     *
+     * @phpstan-param TenantClass                    $tenant
      *
      * @return void
      */
@@ -150,81 +143,5 @@ final class SessionOverride implements BootableServiceOverride, DeferrableServic
     private function getCookieName(Tenancy $tenancy, Tenant $tenant): string
     {
         return $tenancy->getName() . '_' . $tenant->getTenantIdentifier() . '_session';
-    }
-
-    /**
-     * Get a creator for a tenant scoped file session handler
-     *
-     * @return \Closure
-     */
-    private static function createFilesDriver(): Closure
-    {
-        return static function (): FileSessionHandler {
-            /** @var string $originalPath */
-            $originalPath = config('session.files');
-            $path         = rtrim($originalPath, '/') . DIRECTORY_SEPARATOR;
-
-            if (sprout()->withinContext()) {
-                $tenancy = sprout()->getCurrentTenancy();
-
-                if ($tenancy === null) {
-                    throw TenancyMissingException::make();
-                }
-
-                // If there's no tenant, error out
-                if (! $tenancy->check()) {
-                    throw TenantMissingException::make($tenancy->getName());
-                }
-
-                $tenant = $tenancy->tenant();
-
-                // If the tenant isn't configured for resources, also error out
-                if (! ($tenant instanceof TenantHasResources)) {
-                    throw MisconfigurationException::misconfigured('tenant', $tenant::class, 'resources');
-                }
-
-                $path .= $tenant->getTenantResourceKey();
-            }
-
-            /** @var int $lifetime */
-            $lifetime = config('session.lifetime');
-
-            return new FileSessionHandler(
-                app()->make('files'),
-                $path,
-                $lifetime,
-            );
-        };
-    }
-
-    private static function createDatabaseDriver(): Closure
-    {
-        return static function (): OriginalDatabaseSessionHandler {
-            $table      = config('session.table');
-            $lifetime   = config('session.lifetime');
-            $connection = config('session.connection');
-
-            /**
-             * @var string|null $connection
-             * @var string      $table
-             * @var int         $lifetime
-             */
-
-            if (sprout()->withinContext()) {
-                return new TenantAwareDatabaseSessionHandler(
-                    app()->make('db')->connection($connection),
-                    $table,
-                    $lifetime,
-                    app()
-                );
-            }
-
-            return new OriginalDatabaseSessionHandler(
-                app()->make('db')->connection($connection),
-                $table,
-                $lifetime,
-                app()
-            );
-        };
     }
 }

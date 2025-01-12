@@ -10,7 +10,7 @@ use Sprout\Exceptions\TenantMissingException;
 use function Sprout\sprout;
 
 /**
- * Tenant Aware Database Session Handler
+ * Sprout Database Session Handler
  *
  * This is a database session driver that wraps the default
  * {@see \Illuminate\Session\DatabaseSessionHandler} and adds a where clause
@@ -18,7 +18,7 @@ use function Sprout\sprout;
  *
  * @package Overrides
  */
-class TenantAwareDatabaseSessionHandler extends DatabaseSessionHandler
+class SproutDatabaseSessionHandler extends DatabaseSessionHandler
 {
     /**
      * Get a fresh query builder instance for the table.

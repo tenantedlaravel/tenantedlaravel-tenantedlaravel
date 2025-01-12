@@ -9,31 +9,12 @@ namespace Sprout\Events;
  * This event is dispatched when a service override is registered with
  * Sprout.
  *
- * @package Overrides
+ * @template OverrideClass of \Sprout\Contracts\ServiceOverride
  *
- * @method static self dispatch(string $service, string $override)
- * @method static self dispatchIf(bool $boolean, string $service, string $override)
- * @method static self dispatchUnless(bool $boolean, string $service, string $override)
+ * @extends \Sprout\Events\ServiceOverrideEvent<OverrideClass>
+ *
+ * @package Overrides
  */
 final class ServiceOverrideRegistered extends ServiceOverrideEvent
 {
-    /**
-     * @var string
-     */
-    public readonly string $service;
-
-    /**
-     * @var class-string<\Sprout\Contracts\ServiceOverride>
-     */
-    public readonly string $override;
-
-    /**
-     * @param string                                          $service
-     * @param class-string<\Sprout\Contracts\ServiceOverride> $override
-     */
-    public function __construct(string $service, string $override)
-    {
-        $this->service  = $service;
-        $this->override = $override;
-    }
 }

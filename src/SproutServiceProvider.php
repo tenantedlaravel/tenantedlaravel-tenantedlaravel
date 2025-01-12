@@ -7,14 +7,14 @@ use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
-use RuntimeException;
 use Sprout\Events\CurrentTenantChanged;
 use Sprout\Http\Middleware\TenantRoutes;
 use Sprout\Http\RouterMethods;
 use Sprout\Listeners\IdentifyTenantOnRouting;
 use Sprout\Managers\IdentityResolverManager;
-use Sprout\Managers\TenantProviderManager;
+use Sprout\Managers\ServiceOverrideManager;
 use Sprout\Managers\TenancyManager;
+use Sprout\Managers\TenantProviderManager;
 use Sprout\Support\ResolutionHook;
 use Sprout\Support\SettingsRepository;
 
@@ -64,10 +64,15 @@ class SproutServiceProvider extends ServiceProvider
             return new TenancyManager($app, $app->make(TenantProviderManager::class));
         });
 
+        $this->app->singleton(ServiceOverrideManager::class, function ($app) {
+            return new ServiceOverrideManager($app);
+        });
+
         // Alias the managers with simple names
         $this->app->alias(TenantProviderManager::class, 'sprout.providers');
         $this->app->alias(IdentityResolverManager::class, 'sprout.resolvers');
         $this->app->alias(TenancyManager::class, 'sprout.tenancies');
+        $this->app->alias(ServiceOverrideManager::class, 'sprout.overrides');
     }
 
     private function registerMiddleware(): void
@@ -86,7 +91,7 @@ class SproutServiceProvider extends ServiceProvider
 
     protected function registerServiceOverrideBooting(): void
     {
-        $this->app->booted($this->sprout->bootOverrides(...));
+        $this->app->booted($this->sprout->overrides()->bootOverrides(...));
     }
 
     public function boot(): void
@@ -100,23 +105,15 @@ class SproutServiceProvider extends ServiceProvider
     private function publishConfig(): void
     {
         $this->publishes([
-            __DIR__ . '/../resources/config/sprout.php'       => config_path('sprout.php'),
+            __DIR__ . '/../resources/config/core.php'         => config_path('sprout/core.php'),
             __DIR__ . '/../resources/config/multitenancy.php' => config_path('multitenancy.php'),
+            __DIR__ . '/../resources/config/overrides.php'    => config_path('sprout/overrides.php'),
         ], ['config', 'sprout-config']);
     }
 
     private function registerServiceOverrides(): void
     {
-        /** @var array<string, class-string<\Sprout\Contracts\ServiceOverride>> $overrides */
-        $overrides = config('sprout.services', []);
-
-        foreach ($overrides as $service => $overrideClass) {
-            if (! is_string($service)) {
-                throw new RuntimeException('Service overrides must be registered against a "service"'); // @codeCoverageIgnore
-            }
-
-            $this->sprout->registerOverride($service, $overrideClass);
-        }
+        $this->sprout->overrides()->registerOverrides();
     }
 
     private function registerEventListeners(): void
@@ -136,7 +133,7 @@ class SproutServiceProvider extends ServiceProvider
         $events = $this->app->make(Dispatcher::class);
 
         /** @var array<class-string> $bootstrappers */
-        $bootstrappers = config('sprout.bootstrappers', []);
+        $bootstrappers = config('sprout.core.bootstrappers', []);
 
         foreach ($bootstrappers as $bootstrapper) {
             $events->listen(CurrentTenantChanged::class, $bootstrapper);

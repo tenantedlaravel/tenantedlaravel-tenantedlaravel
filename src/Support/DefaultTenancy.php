@@ -48,7 +48,12 @@ final class DefaultTenancy implements Tenancy
     /**
      * @var list<string>
      */
-    private array $options;
+    private array $options = [];
+
+    /**
+     * @var array<string, array<array-key, mixed>>
+     */
+    private array $optionConfig = [];
 
     /**
      * @var \Sprout\Support\ResolutionHook|null
@@ -58,15 +63,25 @@ final class DefaultTenancy implements Tenancy
     /**
      * Create a new instance
      *
-     * @param string                                        $name
-     * @param \Sprout\Contracts\TenantProvider<TenantClass> $provider
-     * @param list<string>                                  $options
+     * @param string                                              $name
+     * @param \Sprout\Contracts\TenantProvider<TenantClass>       $provider
+     * @param list<string|array<string, array<array-key, mixed>>> $options
      */
     public function __construct(string $name, TenantProvider $provider, array $options)
     {
         $this->name     = $name;
         $this->provider = $provider;
-        $this->options  = $options;
+
+        /** @var string|array<string, array<array-key, mixed>> $value */
+        foreach ($options as $value) {
+            if (is_array($value)) {
+                $option                      = array_keys($value)[0];
+                $this->options[]             = $option;
+                $this->optionConfig[$option] = $value[$option];
+            } else if (is_string($value)) {
+                $this->options[] = $value;
+            }
+        }
     }
 
     /**
@@ -288,6 +303,18 @@ final class DefaultTenancy implements Tenancy
     }
 
     /**
+     * Check if a tenancy has an option with config
+     *
+     * @param string $option
+     *
+     * @return bool
+     */
+    public function hasOptionConfig(string $option): bool
+    {
+        return isset($this->optionConfig[$option]);
+    }
+
+    /**
      * Add an option to the tenancy
      *
      * @param string $option
@@ -317,6 +344,22 @@ final class DefaultTenancy implements Tenancy
         }
 
         return $this;
+    }
+
+    /**
+     * Get a tenancy options config
+     *
+     * @param string $option
+     *
+     * @return array<array-key, mixed>|null
+     */
+    public function optionConfig(string $option): ?array
+    {
+        if (! $this->hasOptionConfig($option)) {
+            return null;
+        }
+
+        return $this->optionConfig[$option];
     }
 
     /**

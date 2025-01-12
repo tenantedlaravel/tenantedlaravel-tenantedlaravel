@@ -3,34 +3,31 @@ declare(strict_types=1);
 
 namespace Sprout\Exceptions;
 
-use Sprout\Contracts\ServiceOverride;
-
 final class ServiceOverrideException extends SproutException
 {
     /**
-     * Create an exception when a provided service override class is invalid
+     * Create an exception for when attempting to boot a non-bootable service override
      *
-     * @param class-string $class
+     * @param string $service
      *
      * @return self
      */
-    public static function invalidClass(string $class): self
+    public static function notBootable(string $service): self
     {
-        return new self('The provided service override [' . $class . '] does not implement the ' . ServiceOverride::class . ' interface');
+        return new self('The service override [' . $service . '] is not bootable'); // @codeCoverageIgnore
     }
 
     /**
-     * Create an exception when attempting to replace a service override that has already been processed
+     * Create an exception for when a service override has been set up, but isn't
+     * enabled for the tenancy
      *
-     * @param string                                          $service
-     * @param class-string<\Sprout\Contracts\ServiceOverride> $class
+     * @param string $service
+     * @param string $tenancy
      *
      * @return self
      */
-    public static function alreadyProcessed(string $service, string $class): self
+    public static function setupButNotEnabled(string $service, string $tenancy): self
     {
-        return new self(
-            'The service [' . $service . '] already has an override registered [' . $class . '] which has already been processed'
-        );
+        return new self('The service override [' . $service . '] has been set up for the tenancy [' . $tenancy . '] but it is not enabled for that tenancy'); // @codeCoverageIgnore
     }
 }

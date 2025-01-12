@@ -178,6 +178,15 @@ interface Tenancy
     public function hasOption(string $option): bool;
 
     /**
+     * Check if a tenancy has an option with config
+     *
+     * @param string $option
+     *
+     * @return bool
+     */
+    public function hasOptionConfig(string $option): bool;
+
+    /**
      * Add an option to the tenancy
      *
      * @param string $option
@@ -194,4 +203,13 @@ interface Tenancy
      * @return static
      */
     public function removeOption(string $option): static;
+
+    /**
+     * Get a tenancy options config
+     *
+     * @param string $option
+     *
+     * @return array<array-key, mixed>|null
+     */
+    public function optionConfig(string $option): ?array;
 }

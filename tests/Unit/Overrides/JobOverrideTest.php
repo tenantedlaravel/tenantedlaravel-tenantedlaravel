@@ -8,10 +8,9 @@ use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Event;
 use PHPUnit\Framework\Attributes\Test;
 use Sprout\Contracts\BootableServiceOverride;
-use Sprout\Contracts\DeferrableServiceOverride;
 use Sprout\Listeners\SetCurrentTenantForJob;
 use Sprout\Overrides\JobOverride;
-use Sprout\Support\Services;
+use Sprout\Overrides\SessionOverride;
 use Sprout\Tests\Unit\UnitTestCase;
 use function Sprout\sprout;
 
@@ -20,15 +19,14 @@ class JobOverrideTest extends UnitTestCase
     protected function defineEnvironment($app): void
     {
         tap($app['config'], static function (Repository $config) {
-            $config->set('sprout.services', []);
+            $config->set('sprout.overrides', []);
         });
     }
 
     #[Test]
     public function isBuiltCorrectly(): void
     {
-        $this->assertTrue(is_subclass_of(JobOverride::class, BootableServiceOverride::class));
-        $this->assertFalse(is_subclass_of(JobOverride::class, DeferrableServiceOverride::class));
+        $this->assertTrue(is_subclass_of(SessionOverride::class, BootableServiceOverride::class));
     }
 
     #[Test]
@@ -36,11 +34,18 @@ class JobOverrideTest extends UnitTestCase
     {
         $sprout = sprout();
 
-        $sprout->registerOverride(Services::JOB, JobOverride::class);
+        config()->set('sprout.overrides', [
+            'job' => [
+                'driver' => JobOverride::class,
+            ],
+        ]);
 
-        $this->assertTrue($sprout->hasRegisteredOverride(JobOverride::class));
-        $this->assertTrue($sprout->isBootableOverride(JobOverride::class));
-        $this->assertFalse($sprout->isDeferrableOverride(JobOverride::class));
+        $sprout->overrides()->registerOverrides();
+
+        $this->assertTrue($sprout->overrides()->hasOverride('job'));
+        $this->assertSame(JobOverride::class, $sprout->overrides()->getOverrideClass('job'));
+        $this->assertTrue($sprout->overrides()->isOverrideBootable('job'));
+        $this->assertTrue($sprout->overrides()->hasOverrideBooted('job'));
     }
 
     #[Test]
@@ -50,7 +55,13 @@ class JobOverrideTest extends UnitTestCase
 
         Event::fake();
 
-        $sprout->registerOverride(Services::JOB, JobOverride::class);
+        config()->set('sprout.overrides', [
+            'job' => [
+                'driver' => JobOverride::class,
+            ],
+        ]);
+
+        $sprout->overrides()->registerOverrides();
 
         Event::assertListening(JobProcessing::class, SetCurrentTenantForJob::class);
     }

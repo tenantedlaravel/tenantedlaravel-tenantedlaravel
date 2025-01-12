@@ -120,8 +120,8 @@ final class CookieIdentityResolver extends BaseIdentityResolver
      */
     public function resolveFromRequest(Request $request, Tenancy $tenancy): ?string
     {
-        if (sprout()->hasOverride(CookieOverride::class)) {
-            throw CompatibilityException::make('resolver', $this->getName(), 'override', CookieOverride::class);
+        if (sprout()->overrides()->hasOverride('cookie')) {
+            throw CompatibilityException::make('resolver', $this->getName(), 'service override', 'cookie');
         }
 
         /**

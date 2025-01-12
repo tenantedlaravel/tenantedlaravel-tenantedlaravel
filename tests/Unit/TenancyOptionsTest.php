@@ -37,6 +37,18 @@ class TenancyOptionsTest extends UnitTestCase
         $this->assertSame('tenant-relation.strict', TenancyOptions::throwIfNotRelated());
     }
 
+    #[Test]
+    public function allOverridesOption(): void
+    {
+        $this->assertSame('overrides.all', TenancyOptions::allOverrides());
+    }
+
+    #[Test]
+    public function overridesOption(): void
+    {
+        $this->assertSame(['overrides' => ['test']], TenancyOptions::overrides(['test']));
+    }
+
     #[Test, DefineEnvironment('setupSecondTenancy')]
     public function correctlyReportsHydrateTenantRelationOptionPresence(): void
     {
